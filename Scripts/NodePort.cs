@@ -1,7 +1,9 @@
-﻿using System;
+﻿//#define NON_SCRIPTABLE
+using System;
 using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
+using Newtonsoft.Json;
 
 namespace XNode {
     [Serializable]
@@ -10,7 +12,7 @@ namespace XNode {
 
         public int ConnectionCount { get { return connections.Count; } }
         /// <summary> Return the first non-null connection </summary>
-        public NodePort Connection {
+        [JsonIgnore] public NodePort Connection {
             get {
                 for (int i = 0; i < connections.Count; i++) {
                     if (connections[i] != null) return connections[i].Port;
@@ -33,15 +35,16 @@ namespace XNode {
         }
 
         /// <summary> Is this port connected to anytihng? </summary>
-        public bool IsConnected { get { return connections.Count != 0; } }
-        public bool IsInput { get { return direction == IO.Input; } }
-        public bool IsOutput { get { return direction == IO.Output; } }
+        [JsonIgnore] public bool IsConnected { get { return connections.Count != 0; } }
+        [JsonIgnore] public bool IsInput { get { return direction == IO.Input; } }
+        [JsonIgnore] public bool IsOutput { get { return direction == IO.Output; } }
 
-        public string fieldName { get { return _fieldName; } }
-        public Node node { get { return _node; } }
-        public bool IsDynamic { get { return _dynamic; } }
-        public bool IsStatic { get { return !_dynamic; } }
-        public Type ValueType {
+        [JsonIgnore] public string fieldName { get { return _fieldName; } }
+        [JsonIgnore] public Node node { get { return (_node!=null)?_node:Node.GetNode(NodeIdentifier); } }
+        [JsonIgnore] public bool IsDynamic { get { return _dynamic; } }
+        [JsonIgnore] public bool IsStatic { get { return !_dynamic; } }
+        
+        [JsonIgnore] public Type ValueType {
             get {
                 if (valueType == null && !string.IsNullOrEmpty(_typeQualifiedName)) valueType = Type.GetType(_typeQualifiedName, false);
                 return valueType;
@@ -53,14 +56,20 @@ namespace XNode {
         }
         private Type valueType;
 
-        [SerializeField] private string _fieldName;
-        [SerializeField] private Node _node;
-        [SerializeField] private string _typeQualifiedName;
-        [SerializeField] private List<PortConnection> connections = new List<PortConnection>();
-        [SerializeField] private IO _direction;
-        [SerializeField] private Node.ConnectionType _connectionType;
-        [SerializeField] private Node.TypeConstraint _typeConstraint;
-        [SerializeField] private bool _dynamic;
+        [SerializeField] [JsonProperty] private string _fieldName;
+        [SerializeField] [HideInInspector] public string NodeIdentifier;
+        [SerializeField] [JsonIgnore] private Node _node;
+        [SerializeField] [JsonProperty] private string _typeQualifiedName;
+        [SerializeField] [JsonProperty] private List<PortConnection> connections = new List<PortConnection>(); //Swap to PortConnection IDs instead of instance refs
+        [SerializeField] [JsonProperty] private IO _direction;
+        [SerializeField] [JsonProperty] private Node.ConnectionType _connectionType;
+        [SerializeField] [JsonProperty] private Node.TypeConstraint _typeConstraint;
+        [SerializeField] [JsonProperty] private bool _dynamic;
+
+        /// <summary>
+        /// Default paramaterless constructor
+        /// </summary>
+        public NodePort() { }
 
         /// <summary> Construct a static targetless nodeport. Used as a template. </summary>
         public NodePort(FieldInfo fieldInfo) {
@@ -90,6 +99,7 @@ namespace XNode {
             _connectionType = nodePort._connectionType;
             _typeConstraint = nodePort._typeConstraint;
             _node = node;
+            NodeIdentifier = _node.Identifier;
         }
 
         /// <summary> Construct a dynamic port. Dynamic ports are not forgotten on reimport, and is ideal for runtime-created ports. </summary>
@@ -98,6 +108,7 @@ namespace XNode {
             this.ValueType = type;
             _direction = direction;
             _node = node;
+            NodeIdentifier = _node.Identifier;
             _dynamic = true;
             _connectionType = connectionType;
             _typeConstraint = typeConstraint;
@@ -106,9 +117,9 @@ namespace XNode {
         /// <summary> Checks all connections for invalid references, and removes them. </summary>
         public void VerifyConnections() {
             for (int i = connections.Count - 1; i >= 0; i--) {
-                if (connections[i].node != null &&
+                if (connections[i].Node != null &&
                     !string.IsNullOrEmpty(connections[i].fieldName) &&
-                    connections[i].node.GetPort(connections[i].fieldName) != null)
+                    connections[i].Node.GetPort(connections[i].fieldName) != null)
                     continue;
                 connections.RemoveAt(i);
             }
@@ -208,7 +219,7 @@ namespace XNode {
             if (port == this) { Debug.LogWarning("Cannot connect port to self."); return; }
             if (IsConnectedTo(port)) { Debug.LogWarning("Port already connected. "); return; }
             if (direction == port.direction) { Debug.LogWarning("Cannot connect two " + (direction == IO.Input ? "input" : "output") + " connections"); return; }
-#if UNITY_EDITOR
+#if UNITY_EDITOR && !NON_SCRIPTABLE
             UnityEditor.Undo.RecordObject(node, "Connect Port");
             UnityEditor.Undo.RecordObject(port.node, "Connect Port");
 #endif
@@ -232,11 +243,11 @@ namespace XNode {
 
         public NodePort GetConnection(int i) {
             //If the connection is broken for some reason, remove it.
-            if (connections[i].node == null || string.IsNullOrEmpty(connections[i].fieldName)) {
+            if (connections[i].Node == null || string.IsNullOrEmpty(connections[i].fieldName)) {
                 connections.RemoveAt(i);
                 return null;
             }
-            NodePort port = connections[i].node.GetPort(connections[i].fieldName);
+            NodePort port = connections[i].Node.GetPort(connections[i].fieldName);
             if (port == null) {
                 connections.RemoveAt(i);
                 return null;
@@ -385,31 +396,42 @@ namespace XNode {
         /// <summary> Swap connected nodes from the old list with nodes from the new list </summary>
         public void Redirect(List<Node> oldNodes, List<Node> newNodes) {
             foreach (PortConnection connection in connections) {
-                int index = oldNodes.IndexOf(connection.node);
-                if (index >= 0) connection.node = newNodes[index];
+                int index = oldNodes.IndexOf(connection.Node);
+                if (index >= 0) connection.Node = newNodes[index];
             }
         }
 
         [Serializable]
         private class PortConnection {
             [SerializeField] public string fieldName;
-            [SerializeField] public Node node;
-            public NodePort Port { get { return port != null ? port : port = GetPort(); } }
+            [SerializeField] [HideInInspector] [JsonProperty] private string NodeIdentifier;
+            [JsonIgnore] public Node Node {
+                get { return (node != null) ? node : Node.GetNode(NodeIdentifier); }
+                set 
+                {
+                    node = value;
+                    NodeIdentifier = node.Identifier;
+                }
+            }
+            [SerializeField][JsonIgnore] private Node node;
+            [JsonIgnore] public NodePort Port { get { return port != null ? port : port = GetPort(); } }
 
             [NonSerialized] private NodePort port;
             /// <summary> Extra connection path points for organization </summary>
             [SerializeField] public List<Vector2> reroutePoints = new List<Vector2>();
 
+            public PortConnection() { }
+
             public PortConnection(NodePort port) {
                 this.port = port;
-                node = port.node;
+                Node = port.node;
                 fieldName = port.fieldName;
             }
 
             /// <summary> Returns the port that this <see cref="PortConnection"/> points to </summary>
             private NodePort GetPort() {
-                if (node == null || string.IsNullOrEmpty(fieldName)) return null;
-                return node.GetPort(fieldName);
+                if (Node == null || string.IsNullOrEmpty(fieldName)) return null;
+                return Node.GetPort(fieldName);
             }
         }
     }

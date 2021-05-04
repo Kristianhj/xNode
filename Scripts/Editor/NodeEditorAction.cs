@@ -429,7 +429,7 @@ namespace XNodeEditor {
         /// <summary> Duplicate selected nodes and select the duplicates </summary>
         public void DuplicateSelectedNodes() {
             // Get selected nodes which are part of this graph
-            XNode.Node[] selectedNodes = Selection.objects.Select(x => x as XNode.Node).Where(x => x != null && x.graph == graph).ToArray();
+            XNode.Node[] selectedNodes = Selection.objects.Select(x => x as XNode.Node).Where(x => x != null && x.Graph == graph).ToArray();
             if (selectedNodes == null || selectedNodes.Length == 0) return;
             // Get top left node position
             Vector2 topLeftNode = selectedNodes.Select(x => x.position).Aggregate((x, y) => new Vector2(Mathf.Min(x.x, y.x), Mathf.Min(x.y, y.y)));
@@ -437,7 +437,7 @@ namespace XNodeEditor {
         }
 
         public void CopySelectedNodes() {
-            copyBuffer = Selection.objects.Select(x => x as XNode.Node).Where(x => x != null && x.graph == graph).ToArray();
+            copyBuffer = Selection.objects.Select(x => x as XNode.Node).Where(x => x != null && x.Graph == graph).ToArray();
         }
 
         public void PasteNodes(Vector2 pos) {

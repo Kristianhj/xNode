@@ -23,7 +23,7 @@ namespace XNodeEditor {
                 // main asset, reset the node graph to be the main asset and rename the node asset back to its default
                 // name.
                 if (nodeAsset != null && AssetDatabase.IsMainAsset(nodeAsset)) {
-                    AssetDatabase.SetMainObject(nodeAsset.graph, movedAssets[i]);
+                    AssetDatabase.SetMainObject(nodeAsset.Graph, movedAssets[i]);
                     AssetDatabase.ImportAsset(movedAssets[i]);
 
                     nodeAsset.name = NodeEditorUtilities.NodeDefaultName(nodeAsset.GetType());

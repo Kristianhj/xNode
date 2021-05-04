@@ -1,6 +1,8 @@
-﻿using System;
+﻿//#define NON_SCRIPTABLE
+using System;
 using System.Collections.Generic;
 using UnityEngine;
+using Newtonsoft.Json;
 
 namespace XNode {
     /// <summary>
@@ -23,7 +25,12 @@ namespace XNode {
     /// </code>
     /// </example>
     [Serializable]
-    public abstract class Node : ScriptableObject {
+#if NON_SCRIPTABLE
+    public abstract class Node {
+#else
+    public abstract class Node : ScriptableObject
+    {
+#endif
         /// <summary> Used by <see cref="InputAttribute"/> and <see cref="OutputAttribute"/> to determine when to display the field value associated with a <see cref="NodePort"/> </summary>
         public enum ShowBackingValue {
             /// <summary> Never show the backing value </summary>
@@ -41,6 +48,7 @@ namespace XNode {
             Override,
         }
 
+
         /// <summary> Tells which types of input to allow </summary>
         public enum TypeConstraint {
             /// <summary> Allow all types of input</summary>
@@ -57,13 +65,13 @@ namespace XNode {
 
 #region Obsolete
         [Obsolete("Use DynamicPorts instead")]
-        public IEnumerable<NodePort> InstancePorts { get { return DynamicPorts; } }
+        [JsonIgnoreAttribute] public IEnumerable<NodePort> InstancePorts { get { return DynamicPorts; } }
 
         [Obsolete("Use DynamicOutputs instead")]
-        public IEnumerable<NodePort> InstanceOutputs { get { return DynamicOutputs; } }
+        [JsonIgnoreAttribute] public IEnumerable<NodePort> InstanceOutputs { get { return DynamicOutputs; } }
 
         [Obsolete("Use DynamicInputs instead")]
-        public IEnumerable<NodePort> InstanceInputs { get { return DynamicInputs; } }
+        [JsonIgnoreAttribute] public IEnumerable<NodePort> InstanceInputs { get { return DynamicInputs; } }
 
         [Obsolete("Use AddDynamicInput instead")]
         public NodePort AddInstanceInput(Type type, Node.ConnectionType connectionType = Node.ConnectionType.Multiple, Node.TypeConstraint typeConstraint = TypeConstraint.None, string fieldName = null) {
@@ -94,33 +102,69 @@ namespace XNode {
         public void ClearInstancePorts() {
             ClearDynamicPorts();
         }
-#endregion
+        #endregion
+        public Node() { }
+
+        [JsonConstructor] public Node(string identifier){
+            setupIdentifier(identifier);
+        }
 
         /// <summary> Iterate over all ports on this node. </summary>
-        public IEnumerable<NodePort> Ports { get { foreach (NodePort port in ports.Values) yield return port; } }
+        [JsonIgnore] public IEnumerable<NodePort> Ports { get { foreach (NodePort port in ports.Values) yield return port; } }
         /// <summary> Iterate over all outputs on this node. </summary>
-        public IEnumerable<NodePort> Outputs { get { foreach (NodePort port in Ports) { if (port.IsOutput) yield return port; } } }
+        [JsonIgnore] public IEnumerable<NodePort> Outputs { get { foreach (NodePort port in Ports) { if (port.IsOutput) yield return port; } } }
         /// <summary> Iterate over all inputs on this node. </summary>
-        public IEnumerable<NodePort> Inputs { get { foreach (NodePort port in Ports) { if (port.IsInput) yield return port; } } }
+        [JsonIgnore] public IEnumerable<NodePort> Inputs { get { foreach (NodePort port in Ports) { if (port.IsInput) yield return port; } } }
         /// <summary> Iterate over all dynamic ports on this node. </summary>
-        public IEnumerable<NodePort> DynamicPorts { get { foreach (NodePort port in Ports) { if (port.IsDynamic) yield return port; } } }
+        [JsonIgnore] public IEnumerable<NodePort> DynamicPorts { get { foreach (NodePort port in Ports) { if (port.IsDynamic) yield return port; } } }
         /// <summary> Iterate over all dynamic outputs on this node. </summary>
-        public IEnumerable<NodePort> DynamicOutputs { get { foreach (NodePort port in Ports) { if (port.IsDynamic && port.IsOutput) yield return port; } } }
+        [JsonIgnore] public IEnumerable<NodePort> DynamicOutputs { get { foreach (NodePort port in Ports) { if (port.IsDynamic && port.IsOutput) yield return port; } } }
         /// <summary> Iterate over all dynamic inputs on this node. </summary>
-        public IEnumerable<NodePort> DynamicInputs { get { foreach (NodePort port in Ports) { if (port.IsDynamic && port.IsInput) yield return port; } } }
+        [JsonIgnore] public IEnumerable<NodePort> DynamicInputs { get { foreach (NodePort port in Ports) { if (port.IsDynamic && port.IsInput) yield return port; } } }
+        [JsonIgnore] public NodeGraph Graph { get { return (graph != null) ? graph : NodeGraph.GetGraph(GraphIdentifier); }
+            set
+            {
+                GraphIdentifier = value.Identifier;
+                this.graph = value;
+            }
+        }
+        /// <summary> Node ID </summary>
+        [SerializeField] [HideInInspector] public string Identifier;
+        /// <summary> Graph ID </summary>
+        [SerializeField] [HideInInspector] public string GraphIdentifier;
         /// <summary> Parent <see cref="NodeGraph"/> </summary>
-        [SerializeField] public NodeGraph graph;
+        private NodeGraph graph;
         /// <summary> Position on the <see cref="NodeGraph"/> </summary>
-        [SerializeField] public Vector2 position;
+        [SerializeField] [JsonIgnore] public Vector2 position;
         /// <summary> It is recommended not to modify these at hand. Instead, see <see cref="InputAttribute"/> and <see cref="OutputAttribute"/> </summary>
-        [SerializeField] private NodePortDictionary ports = new NodePortDictionary();
-
+        [SerializeField] [JsonProperty] private NodePortDictionary ports = new NodePortDictionary();
+        /// <summary> Node Dictionary </summary>
+        private static Dictionary<string, Node> nodeDict = new Dictionary<string, Node>();
         /// <summary> Used during node instantiation to fix null/misconfigured graph during OnEnable/Init. Set it before instantiating a node. Will automatically be unset during OnEnable </summary>
         public static NodeGraph graphHotfix;
+
+        private void setupIdentifier(string identifier = "")
+        {
+            Identifier = (!string.IsNullOrEmpty(identifier)) ? identifier : System.Guid.NewGuid().ToString();
+
+            if (!nodeDict.ContainsKey(Identifier))
+                nodeDict.Add(Identifier, this);
+        }
+
+        internal static Node GetNode(string identifier)
+        {
+            return nodeDict[identifier];
+        }
 
         protected void OnEnable() {
             if (graphHotfix != null) graph = graphHotfix;
             graphHotfix = null;
+
+            setupIdentifier(Identifier);
+
+            if (ports == null)
+                ports = new NodePortDictionary();
+
             UpdatePorts();
             Init();
         }
@@ -162,7 +206,11 @@ namespace XNode {
                 int i = 0;
                 while (HasPort(fieldName)) fieldName = "dynamicInput_" + (++i);
             } else if (HasPort(fieldName)) {
+#if NON_SCRIPTABLE
+                Debug.LogWarning("Port '" + fieldName + "' already exists ");
+#else
                 Debug.LogWarning("Port '" + fieldName + "' already exists in " + name, this);
+#endif
                 return ports[fieldName];
             }
             NodePort port = new NodePort(fieldName, type, direction, connectionType, typeConstraint, this);
@@ -389,9 +437,9 @@ namespace XNode {
         }
 #endregion
 
-        [Serializable] private class NodePortDictionary : Dictionary<string, NodePort>, ISerializationCallbackReceiver {
-            [SerializeField] private List<string> keys = new List<string>();
-            [SerializeField] private List<NodePort> values = new List<NodePort>();
+        [Serializable] public class NodePortDictionary : Dictionary<string, NodePort>, ISerializationCallbackReceiver {
+            [SerializeField] [JsonProperty] public List<string> keys = new List<string>();
+            [SerializeField] [JsonProperty] public List<NodePort> values = new List<NodePort>();
 
             public void OnBeforeSerialize() {
                 keys.Clear();

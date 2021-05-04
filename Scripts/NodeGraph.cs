@@ -1,15 +1,48 @@
-﻿using System;
+﻿//#define NON_SCRIPTABLE
+using System;
 using System.Collections.Generic;
 using UnityEngine;
+using Newtonsoft.Json;
 
 namespace XNode {
     /// <summary> Base class for all node graphs </summary>
     [Serializable]
-    public abstract class NodeGraph : ScriptableObject {
+#if NON_SCRIPTABLE
+    public abstract class NodeGraph {
+#else
+    public abstract class NodeGraph : ScriptableObject
+    {
+#endif
+        [HideInInspector] public string Identifier;
+        private static Dictionary<string, NodeGraph> graphDict = new Dictionary<string, NodeGraph>();
 
         /// <summary> All nodes in the graph. <para/>
         /// See: <see cref="AddNode{T}"/> </summary>
         [SerializeField] public List<Node> nodes = new List<Node>();
+
+        [JsonConstructor] public NodeGraph(string identifier) {
+            setuptIdentifier(identifier);
+        }
+
+        private void setuptIdentifier(string identifier = "") {
+            Identifier = (!string.IsNullOrEmpty(identifier)) ? identifier : System.Guid.NewGuid().ToString();
+
+            if (!graphDict.ContainsKey(Identifier))
+                graphDict.Add(Identifier, this);
+        }
+
+        void OnEnable() //Called by unity
+        {
+            if (nodes == null)
+                nodes = new List<Node>();
+
+            setuptIdentifier(Identifier);
+        }
+
+        internal static NodeGraph GetGraph(string graphID)
+        {
+            return graphDict[graphID];
+        }
 
         /// <summary> Add a node to the graph by type (convenience method - will call the System.Type version) </summary>
         public T AddNode<T>() where T : Node {
@@ -19,17 +52,27 @@ namespace XNode {
         /// <summary> Add a node to the graph by type </summary>
         public virtual Node AddNode(Type type) {
             Node.graphHotfix = this;
-            Node node = ScriptableObject.CreateInstance(type) as Node;
-            node.graph = this;
+            Node node = getNodeInstance(type) as Node;
+
+            node.Graph = this;
             nodes.Add(node);
             return node;
+        }
+
+        private object getNodeInstance(Type type)
+        {
+#if NON_SCRIPTABLE
+            return Activator.CreateInstance(type) as Node;
+#else
+            return  ScriptableObject.CreateInstance(type) as Node;
+#endif
         }
 
         /// <summary> Creates a copy of the original node in the graph </summary>
         public virtual Node CopyNode(Node original) {
             Node.graphHotfix = this;
-            Node node = ScriptableObject.Instantiate(original);
-            node.graph = this;
+            Node node = getNodeInstance(original.GetType()) as Node;
+            node.Graph = this;
             node.ClearConnections();
             nodes.Add(node);
             return node;
@@ -40,29 +83,38 @@ namespace XNode {
         public virtual void RemoveNode(Node node) {
             node.ClearConnections();
             nodes.Remove(node);
+#if !NON_SCRIPTABLE
             if (Application.isPlaying) Destroy(node);
+#endif
         }
 
         /// <summary> Remove all nodes and connections from the graph </summary>
         public virtual void Clear() {
-            if (Application.isPlaying) {
+#if !NON_SCRIPTABLE
+             if (Application.isPlaying) {
                 for (int i = 0; i < nodes.Count; i++) {
                     Destroy(nodes[i]);
                 }
             }
+#endif
             nodes.Clear();
         }
 
         /// <summary> Create a new deep copy of this graph </summary>
         public virtual XNode.NodeGraph Copy() {
+
             // Instantiate a new nodegraph instance
+#if NON_SCRIPTABLE
+            NodeGraph graph = Activator.CreateInstance(this.GetType()) as NodeGraph;
+#else
             NodeGraph graph = Instantiate(this);
+#endif
             // Instantiate all nodes inside the graph
             for (int i = 0; i < nodes.Count; i++) {
                 if (nodes[i] == null) continue;
                 Node.graphHotfix = graph;
-                Node node = Instantiate(nodes[i]) as Node;
-                node.graph = graph;
+                Node node = getNodeInstance(nodes[i].GetType()) as Node;
+                node.Graph = graph;
                 graph.nodes[i] = node;
             }
 
