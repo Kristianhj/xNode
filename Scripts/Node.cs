@@ -103,7 +103,9 @@ namespace XNode {
             ClearDynamicPorts();
         }
         #endregion
-        public Node() { }
+        /*public Node() {
+            System.Console.Write("Im here");
+        }*/
 
         [JsonConstructor] public Node(string identifier){
             setupIdentifier(identifier);
@@ -292,7 +294,8 @@ namespace XNode {
         /// <summary> Returns a value based on requested port output. Should be overridden in all derived nodes with outputs. </summary>
         /// <param name="port">The requested port.</param>
         public virtual object GetValue(NodePort port) {
-            Debug.LogWarning("No GetValue(NodePort port) override defined for " + GetType());
+            System.Console.Write("No GetValue(NodePort port) override defined for " + GetType());
+            //Debug.LogWarning("No GetValue(NodePort port) override defined for " + GetType());
             return null;
         }
 #endregion

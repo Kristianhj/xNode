@@ -131,17 +131,29 @@ namespace XNode {
                 string assemblyName = assembly.GetName().Name;
                 int index = assemblyName.IndexOf('.');
                 if (index != -1) assemblyName = assemblyName.Substring(0, index);
-                switch (assemblyName) {
-                    // The following assemblies, and sub-assemblies (eg. UnityEngine.UI) are skipped
-                    case "UnityEditor":
-                    case "UnityEngine":
-                    case "System":
-                    case "mscorlib":
-                    case "Microsoft":
-                        continue;
-                    default:
-                        nodeTypes.AddRange(assembly.GetTypes().Where(t => !t.IsAbstract && baseType.IsAssignableFrom(t)).ToArray());
-                        break;
+                try
+                {
+                    switch (assemblyName)
+                    {
+                        // The following assemblies, and sub-assemblies (eg. UnityEngine.UI) are skipped
+                        case "UnityEditor":
+                        case "UnityEngine":
+                        case "System":
+                        case "mscorlib":
+                        case "Microsoft":
+                            continue;
+                        default:
+                            nodeTypes.AddRange(assembly.GetTypes().Where(t => !t.IsAbstract && baseType.IsAssignableFrom(t)).ToArray());
+                            break;
+                    } 
+                }
+                catch (ReflectionTypeLoadException ex)
+                {
+                    // now look at ex.LoaderExceptions - this is an Exception[], so:
+                    foreach (System.Exception inner in ex.LoaderExceptions)
+                    {
+                        System.Console.Write(inner.Message);
+                    }
                 }
             }
 
