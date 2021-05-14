@@ -1,8 +1,7 @@
-﻿//#define NON_SCRIPTABLE
+﻿//#define NON_SCRIPTABLE Must be set in projectsettings when building Service
 using System;
 using System.Collections.Generic;
 using UnityEngine;
-using Newtonsoft.Json;
 
 namespace XNode {
     /// <summary> Base class for all node graphs </summary>
@@ -20,7 +19,7 @@ namespace XNode {
         /// See: <see cref="AddNode{T}"/> </summary>
         [SerializeField] public List<Node> nodes = new List<Node>();
 
-        [JsonConstructor] public NodeGraph(string identifier) {
+        [XNodeJsonConstructor] public NodeGraph(string identifier) {
             setuptIdentifier(identifier);
         }
 
@@ -28,10 +27,18 @@ namespace XNode {
             Identifier = (!string.IsNullOrEmpty(identifier)) ? identifier : System.Guid.NewGuid().ToString();
 
             if (!graphDict.ContainsKey(Identifier))
+            {
                 graphDict.Add(Identifier, this);
+                foreach (var node in nodes)
+                {
+                    node.GraphIdentifier = Identifier;
+                }
+            }
+            else
+                setuptIdentifier();
         }
 
-        void OnEnable() //Called by unity
+         public virtual void OnEnable() //Called by unity
         {
             if (nodes == null)
                 nodes = new List<Node>();

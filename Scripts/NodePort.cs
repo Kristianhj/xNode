@@ -1,9 +1,8 @@
-﻿//#define NON_SCRIPTABLE
+﻿//#define NON_SCRIPTABLE Must be set in projectsettings when building Service
 using System;
 using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
-using Newtonsoft.Json;
 
 namespace XNode {
     [Serializable]
@@ -12,7 +11,7 @@ namespace XNode {
 
         public int ConnectionCount { get { return connections.Count; } }
         /// <summary> Return the first non-null connection </summary>
-        [JsonIgnore] public NodePort Connection {
+        public NodePort Connection {
             get {
                 for (int i = 0; i < connections.Count; i++) {
                     if (connections[i] != null) return connections[i].Port;
@@ -35,16 +34,16 @@ namespace XNode {
         }
 
         /// <summary> Is this port connected to anytihng? </summary>
-        [JsonIgnore] public bool IsConnected { get { return connections.Count != 0; } }
-        [JsonIgnore] public bool IsInput { get { return direction == IO.Input; } }
-        [JsonIgnore] public bool IsOutput { get { return direction == IO.Output; } }
+        public bool IsConnected { get { return connections.Count != 0; } }
+        public bool IsInput { get { return direction == IO.Input; } }
+        public bool IsOutput { get { return direction == IO.Output; } }
 
-        [JsonIgnore] public string fieldName { get { return _fieldName; } }
-        [JsonIgnore] public Node node { get { return (_node!=null)?_node:Node.GetNode(NodeIdentifier); } }
-        [JsonIgnore] public bool IsDynamic { get { return _dynamic; } }
-        [JsonIgnore] public bool IsStatic { get { return !_dynamic; } }
+        public string fieldName { get { return _fieldName; } }
+        public Node node { get { return (_node!=null)?_node:Node.GetNode(NodeIdentifier); } }
+        public bool IsDynamic { get { return _dynamic; } }
+        public bool IsStatic { get { return !_dynamic; } }
         
-        [JsonIgnore] public Type ValueType {
+        public Type ValueType {
             get {
                 if (valueType == null && !string.IsNullOrEmpty(_typeQualifiedName)) valueType = Type.GetType(_typeQualifiedName, false);
                 return valueType;
@@ -56,15 +55,15 @@ namespace XNode {
         }
         private Type valueType;
 
-        [SerializeField] [JsonProperty] private string _fieldName;
+        [SerializeField] private string _fieldName;
         [SerializeField] [HideInInspector] public string NodeIdentifier;
-        [SerializeField] [JsonIgnore] private Node _node;
-        [SerializeField] [JsonProperty] private string _typeQualifiedName;
-        [SerializeField] [JsonProperty] private List<PortConnection> connections = new List<PortConnection>(); //Swap to PortConnection IDs instead of instance refs
-        [SerializeField] [JsonProperty] private IO _direction;
-        [SerializeField] [JsonProperty] private Node.ConnectionType _connectionType;
-        [SerializeField] [JsonProperty] private Node.TypeConstraint _typeConstraint;
-        [SerializeField] [JsonProperty] private bool _dynamic;
+        [SerializeField] [XNodeJsonIgnore] private Node _node;
+        [SerializeField] private string _typeQualifiedName;
+        [SerializeField] private List<PortConnection> connections = new List<PortConnection>(); //Swap to PortConnection IDs instead of instance refs
+        [SerializeField] private IO _direction;
+        [SerializeField] private Node.ConnectionType _connectionType;
+        [SerializeField] private Node.TypeConstraint _typeConstraint;
+        [SerializeField] private bool _dynamic;
 
         /// <summary>
         /// Default paramaterless constructor
@@ -404,8 +403,8 @@ namespace XNode {
         [Serializable]
         private class PortConnection {
             [SerializeField] public string fieldName;
-            [SerializeField] [HideInInspector] [JsonProperty] private string NodeIdentifier;
-            [JsonIgnore] public Node Node {
+            [SerializeField] [HideInInspector] private string NodeIdentifier;
+            public Node Node {
                 get { return (node != null) ? node : Node.GetNode(NodeIdentifier); }
                 set 
                 {
@@ -413,8 +412,8 @@ namespace XNode {
                     NodeIdentifier = node.Identifier;
                 }
             }
-            [SerializeField][JsonIgnore] private Node node;
-            [JsonIgnore] public NodePort Port { get { return port != null ? port : port = GetPort(); } }
+            [SerializeField][XNodeJsonIgnore] private Node node;
+            public NodePort Port { get { return port != null ? port : port = GetPort(); } }
 
             [NonSerialized] private NodePort port;
             /// <summary> Extra connection path points for organization </summary>

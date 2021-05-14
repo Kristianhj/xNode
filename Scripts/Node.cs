@@ -1,8 +1,7 @@
-﻿//#define NON_SCRIPTABLE
+﻿//#define NON_SCRIPTABLE Must be set in projectsettings when building Service
 using System;
 using System.Collections.Generic;
 using UnityEngine;
-using Newtonsoft.Json;
 
 namespace XNode {
     /// <summary>
@@ -65,13 +64,13 @@ namespace XNode {
 
 #region Obsolete
         [Obsolete("Use DynamicPorts instead")]
-        [JsonIgnoreAttribute] public IEnumerable<NodePort> InstancePorts { get { return DynamicPorts; } }
+        public IEnumerable<NodePort> InstancePorts { get { return DynamicPorts; } }
 
         [Obsolete("Use DynamicOutputs instead")]
-        [JsonIgnoreAttribute] public IEnumerable<NodePort> InstanceOutputs { get { return DynamicOutputs; } }
+        public IEnumerable<NodePort> InstanceOutputs { get { return DynamicOutputs; } }
 
         [Obsolete("Use DynamicInputs instead")]
-        [JsonIgnoreAttribute] public IEnumerable<NodePort> InstanceInputs { get { return DynamicInputs; } }
+        public IEnumerable<NodePort> InstanceInputs { get { return DynamicInputs; } }
 
         [Obsolete("Use AddDynamicInput instead")]
         public NodePort AddInstanceInput(Type type, Node.ConnectionType connectionType = Node.ConnectionType.Multiple, Node.TypeConstraint typeConstraint = TypeConstraint.None, string fieldName = null) {
@@ -103,27 +102,25 @@ namespace XNode {
             ClearDynamicPorts();
         }
         #endregion
-        /*public Node() {
-            System.Console.Write("Im here");
-        }*/
+        public Node() { }
 
-        [JsonConstructor] public Node(string identifier){
+        [XNodeJsonConstructor] public Node(string identifier){
             setupIdentifier(identifier);
         }
 
         /// <summary> Iterate over all ports on this node. </summary>
-        [JsonIgnore] public IEnumerable<NodePort> Ports { get { foreach (NodePort port in ports.Values) yield return port; } }
+        public IEnumerable<NodePort> Ports { get { foreach (NodePort port in ports.Values) yield return port; } }
         /// <summary> Iterate over all outputs on this node. </summary>
-        [JsonIgnore] public IEnumerable<NodePort> Outputs { get { foreach (NodePort port in Ports) { if (port.IsOutput) yield return port; } } }
+        public IEnumerable<NodePort> Outputs { get { foreach (NodePort port in Ports) { if (port.IsOutput) yield return port; } } }
         /// <summary> Iterate over all inputs on this node. </summary>
-        [JsonIgnore] public IEnumerable<NodePort> Inputs { get { foreach (NodePort port in Ports) { if (port.IsInput) yield return port; } } }
+        public IEnumerable<NodePort> Inputs { get { foreach (NodePort port in Ports) { if (port.IsInput) yield return port; } } }
         /// <summary> Iterate over all dynamic ports on this node. </summary>
-        [JsonIgnore] public IEnumerable<NodePort> DynamicPorts { get { foreach (NodePort port in Ports) { if (port.IsDynamic) yield return port; } } }
+        public IEnumerable<NodePort> DynamicPorts { get { foreach (NodePort port in Ports) { if (port.IsDynamic) yield return port; } } }
         /// <summary> Iterate over all dynamic outputs on this node. </summary>
-        [JsonIgnore] public IEnumerable<NodePort> DynamicOutputs { get { foreach (NodePort port in Ports) { if (port.IsDynamic && port.IsOutput) yield return port; } } }
+        public IEnumerable<NodePort> DynamicOutputs { get { foreach (NodePort port in Ports) { if (port.IsDynamic && port.IsOutput) yield return port; } } }
         /// <summary> Iterate over all dynamic inputs on this node. </summary>
-        [JsonIgnore] public IEnumerable<NodePort> DynamicInputs { get { foreach (NodePort port in Ports) { if (port.IsDynamic && port.IsInput) yield return port; } } }
-        [JsonIgnore] public NodeGraph Graph { get { return (graph != null) ? graph : NodeGraph.GetGraph(GraphIdentifier); }
+        public IEnumerable<NodePort> DynamicInputs { get { foreach (NodePort port in Ports) { if (port.IsDynamic && port.IsInput) yield return port; } } }
+        public NodeGraph Graph { get { return (graph != null) ? graph : NodeGraph.GetGraph(GraphIdentifier); }
             set
             {
                 GraphIdentifier = value.Identifier;
@@ -137,9 +134,9 @@ namespace XNode {
         /// <summary> Parent <see cref="NodeGraph"/> </summary>
         private NodeGraph graph;
         /// <summary> Position on the <see cref="NodeGraph"/> </summary>
-        [SerializeField] [JsonIgnore] public Vector2 position;
+        [SerializeField] public Vector2 position;
         /// <summary> It is recommended not to modify these at hand. Instead, see <see cref="InputAttribute"/> and <see cref="OutputAttribute"/> </summary>
-        [SerializeField] [JsonProperty] private NodePortDictionary ports = new NodePortDictionary();
+        [SerializeField] private NodePortDictionary ports = new NodePortDictionary();
         /// <summary> Node Dictionary </summary>
         private static Dictionary<string, Node> nodeDict = new Dictionary<string, Node>();
         /// <summary> Used during node instantiation to fix null/misconfigured graph during OnEnable/Init. Set it before instantiating a node. Will automatically be unset during OnEnable </summary>
@@ -294,8 +291,7 @@ namespace XNode {
         /// <summary> Returns a value based on requested port output. Should be overridden in all derived nodes with outputs. </summary>
         /// <param name="port">The requested port.</param>
         public virtual object GetValue(NodePort port) {
-            System.Console.Write("No GetValue(NodePort port) override defined for " + GetType());
-            //Debug.LogWarning("No GetValue(NodePort port) override defined for " + GetType());
+            Debug.LogWarning("No GetValue(NodePort port) override defined for " + GetType());
             return null;
         }
 #endregion
@@ -441,8 +437,8 @@ namespace XNode {
 #endregion
 
         [Serializable] public class NodePortDictionary : Dictionary<string, NodePort>, ISerializationCallbackReceiver {
-            [SerializeField] [JsonProperty] public List<string> keys = new List<string>();
-            [SerializeField] [JsonProperty] public List<NodePort> values = new List<NodePort>();
+            [SerializeField] public List<string> keys = new List<string>();
+            [SerializeField] public List<NodePort> values = new List<NodePort>();
 
             public void OnBeforeSerialize() {
                 keys.Clear();
