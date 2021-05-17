@@ -31,7 +31,7 @@ namespace XNode {
                 graphDict.Add(Identifier, this);
                 foreach (var node in nodes)
                 {
-                    node.GraphIdentifier = Identifier;
+                    node.Graph = this;
                 }
             }
             else

@@ -138,7 +138,7 @@ namespace XNode {
         /// <summary> It is recommended not to modify these at hand. Instead, see <see cref="InputAttribute"/> and <see cref="OutputAttribute"/> </summary>
         [SerializeField] private NodePortDictionary ports = new NodePortDictionary();
         /// <summary> Node Dictionary </summary>
-        private static Dictionary<string, Node> nodeDict = new Dictionary<string, Node>();
+        private static Dictionary<string, Node> nodeDict = new Dictionary<string, Node>(); //Since this is static it causes problem when the consumeservice is retriggered
         /// <summary> Used during node instantiation to fix null/misconfigured graph during OnEnable/Init. Set it before instantiating a node. Will automatically be unset during OnEnable </summary>
         public static NodeGraph graphHotfix;
 
@@ -148,6 +148,8 @@ namespace XNode {
 
             if (!nodeDict.ContainsKey(Identifier))
                 nodeDict.Add(Identifier, this);
+            else
+                nodeDict[identifier] = this;
         }
 
         internal static Node GetNode(string identifier)
